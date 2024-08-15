@@ -2,13 +2,15 @@ import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 // import * as CertificateManager from "aws-cdk-lib/aws-certificatemanager";
-// import * as Route53 from "aws-cdk-lib/aws-route53";
-// import * as Route53Targets from "aws-cdk-lib/aws-route53-targets";
-// import * as ApiGateway from "aws-cdk-lib/aws-apigateway";
+import * as Route53 from "aws-cdk-lib/aws-route53";
+import * as Route53Targets from "aws-cdk-lib/aws-route53-targets";
+import * as ApiGateway from "aws-cdk-lib/aws-apigateway";
 
 // import * as ELBv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 // import { StageInfo } from "../config/stage-config";
 import * as Cognito from "aws-cdk-lib/aws-cognito";
+import * as S3 from "aws-cdk-lib/aws-s3";
+import * as CloudFront from "aws-cdk-lib/aws-cloudfront";
 
 export class PCAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -54,6 +56,50 @@ export class PCAppStack extends cdk.Stack {
       //     value: "value",
       //   },
       // ],
+    });
+
+    const s3CorsRule: S3.CorsRule = {
+      allowedMethods: [S3.HttpMethods.GET, S3.HttpMethods.HEAD],
+      allowedOrigins: ["*"],
+      allowedHeaders: ["*"],
+      maxAge: 300,
+    };
+
+    const s3Bucket = new S3.Bucket(this, "S3Bucket", {
+      //bucketName: "hosting-pcapp",
+      blockPublicAccess: S3.BlockPublicAccess.BLOCK_ALL,
+      accessControl: S3.BucketAccessControl.PRIVATE,
+      cors: [s3CorsRule],
+    });
+    const oai = new CloudFront.OriginAccessIdentity(this, "OAI");
+    s3Bucket.grantRead(oai);
+
+    const backendCloudfront = new CloudFront.CloudFrontWebDistribution(this, "PcAppCFDistro", {
+      comment: "PcApp CloudFront Distribution",
+      defaultRootObject: "index.html",
+      priceClass: CloudFront.PriceClass.PRICE_CLASS_ALL,
+      viewerProtocolPolicy: CloudFront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      // errorConfigurations: [
+      //   {
+      //     errorCode: 403,
+      //     responseCode: 200,
+      //     responsePagePath: "/index.html",
+      //   },
+      //   {
+      //     errorCode: 404,
+      //     responseCode: 200,
+      //     responsePagePath: "/index.html",
+      //   },
+      // ],
+      originConfigs: [
+        {
+          s3OriginSource: {
+            s3BucketSource: s3Bucket,
+            originAccessIdentity: oai,
+          },
+          behaviors: [{ isDefaultBehavior: true }, { pathPattern: "/*", allowedMethods: CloudFront.CloudFrontAllowedMethods.GET_HEAD }],
+        },
+      ],
     });
 
     // example resource
