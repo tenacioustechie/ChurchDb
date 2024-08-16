@@ -10,6 +10,7 @@ import * as ApiGateway from "aws-cdk-lib/aws-apigateway";
 // import { StageInfo } from "../config/stage-config";
 import * as Cognito from "aws-cdk-lib/aws-cognito";
 import * as S3 from "aws-cdk-lib/aws-s3";
+import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import * as CloudFront from "aws-cdk-lib/aws-cloudfront";
 
 export class PCAppStack extends cdk.Stack {
@@ -74,7 +75,7 @@ export class PCAppStack extends cdk.Stack {
     const oai = new CloudFront.OriginAccessIdentity(this, "OAI");
     s3Bucket.grantRead(oai);
 
-    const backendCloudfront = new CloudFront.CloudFrontWebDistribution(this, "PcAppCFDistro", {
+    const myCloudfrontDistro = new CloudFront.CloudFrontWebDistribution(this, "PcAppCFDistro", {
       comment: "PcApp CloudFront Distribution",
       defaultRootObject: "index.html",
       priceClass: CloudFront.PriceClass.PRICE_CLASS_ALL,
@@ -101,6 +102,16 @@ export class PCAppStack extends cdk.Stack {
         },
       ],
     });
+
+    // Deploy web content to S3 Bucket
+    //const deploySiteContent = (bucket: Bucket, distribution: Distribution): void => {
+    const deployment = new BucketDeployment(this, "DeployWithInvalidation", {
+      sources: [Source.asset("./../frontend/church-db-app/build")],
+      destinationBucket: s3Bucket,
+      distribution: myCloudfrontDistro,
+      distributionPaths: ["/*"],
+    });
+    //};
 
     // example resource
     // const queue = new sqs.Queue(this, 'PcAppQueue', {
