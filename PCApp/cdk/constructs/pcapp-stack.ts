@@ -12,6 +12,7 @@ import * as Cognito from "aws-cdk-lib/aws-cognito";
 import * as S3 from "aws-cdk-lib/aws-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import * as CloudFront from "aws-cdk-lib/aws-cloudfront";
+import { SurveyWebhook } from "./survey-webhook";
 
 export class PCAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -117,5 +118,7 @@ export class PCAppStack extends cdk.Stack {
     // const queue = new sqs.Queue(this, 'PcAppQueue', {
     //   visibilityTimeout: cdk.Duration.seconds(300)
     // });
+
+    new SurveyWebhook(this, "SurveyWebhook", {});
   }
 }
