@@ -2,11 +2,12 @@ import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as ApiGateway from "aws-cdk-lib/aws-apigateway";
+import { Effect, Policy, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 //import { aws_sqs as sqs } from "aws-cdk-lib";
 
-export class SurveyWebhook extends cdk.Stack {
+export class SurveyWebhook extends Construct {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+    super(scope, id);
 
     // survey webhook dead letter queue
     const surveyWebhookDlq = new sqs.Queue(this, "PcAppSurveyResultsDLQ", {
@@ -30,10 +31,36 @@ export class SurveyWebhook extends cdk.Stack {
       description: "This API receives survey results from the PCApp survey form",
     });
 
+    // Create policy to allow api gateway to send message to sqs
+    const credentialsRole = new Role(this, "webhook-api-role", {
+      assumedBy: new ServicePrincipal("apigateway.amazonaws.com"),
+    });
+    const policy = new Policy(this, "webhook-api-send-message-policy", {
+      statements: [
+        new PolicyStatement({
+          actions: ["sqs:SendMessage"],
+          effect: Effect.ALLOW,
+          resources: [surveyWebhookQueue.queueArn],
+        }),
+      ],
+    });
+    credentialsRole.attachInlinePolicy(policy);
+
     const webhookIntegration = new ApiGateway.AwsIntegration({
       service: "sqs",
       path: surveyWebhookQueue.queueUrl,
       integrationHttpMethod: "POST",
+      options: {
+        credentialsRole,
+        requestParameters: {
+          "integration.request.header.Content-Type": "'application/x-www-form-urlencoded'",
+        },
+        // requestTemplates: {
+        //   "application/json": `Action=SendMessage&MessageBody=$util.urlEncode($input.body)`,
+        // },
+        requestTemplates: { "application/json": "Action=SendMessage&MessageBody=$input.body" },
+        passthroughBehavior: ApiGateway.PassthroughBehavior.NEVER,
+      },
     });
     webhookApi.root.addResource("responslyPC2024").addMethod("POST", webhookIntegration);
     //surveyWebhookQueue.grantSendMessages(webhookIntegration);
