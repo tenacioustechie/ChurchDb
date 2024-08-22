@@ -13,6 +13,12 @@ import * as S3 from "aws-cdk-lib/aws-s3";
 import { BucketDeployment, Source } from "aws-cdk-lib/aws-s3-deployment";
 import * as CloudFront from "aws-cdk-lib/aws-cloudfront";
 import { SurveyWebhook } from "./survey-webhook";
+import { WebhookQueue } from "./webhook-queue";
+import { QueueFunction } from "./queue-function";
+import { DnsZone } from "./dns-zone";
+import { Lambda } from "aws-cdk-lib/aws-ses-actions";
+import { Function } from "aws-cdk-lib/aws-lambda";
+import path = require("path");
 
 export class PCAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -119,6 +125,15 @@ export class PCAppStack extends cdk.Stack {
     //   visibilityTimeout: cdk.Duration.seconds(300)
     // });
 
-    new SurveyWebhook(this, "SurveyWebhook", {});
+    const dnsZone = new DnsZone(this, "PCAppDnsZone", { zoneName: "pcapp.peoplecount.au", domainName: "pcapp.peoplecount.au" });
+
+    const responslyWebhook = new WebhookQueue(this, "PCAppResponslyWebhook", { webhookUriPath: "ResponslyWebhook" });
+
+    //var webhook = new SurveyWebhook(this, "SurveyWebhook", {});
+
+    console.log("Directory path: " + __dirname);
+    console.log("Lambda path: " + path.join(__dirname, "../../lambda/process-survey-results.ts"));
+
+    var queueFunction = new QueueFunction(this, "QueueFunction", { queue: responslyWebhook.queue, functionEntry: path.join(__dirname, "../../lambda/process-survey-results.ts"), handler: "handler" });
   }
 }

@@ -25,6 +25,7 @@
     "@aws-amplify/ui-react": "^6.2.0",
     "aws-cdk-lib": "2.151.0",
     "constructs": "^10.0.0",
+    "esbuild": "^0.23.1",
     "source-map-support": "^0.5.21"
   }
 }
