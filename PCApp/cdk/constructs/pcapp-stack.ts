@@ -127,12 +127,17 @@ export class PCAppStack extends cdk.Stack {
 
     const dnsZone = new DnsZone(this, "PCAppDnsZone", { zoneName: "pcapp.peoplecount.au", domainName: "pcapp.peoplecount.au" });
 
-    const responslyWebhook = new WebhookQueue(this, "PCAppResponslyWebhook", { webhookUriPath: "ResponslyWebhook" });
+    const responslyWebhook = new WebhookQueue(this, "PCAppResponslyWebhook", {
+      webhookUriPath: "ResponslyWebhook",
+      dnsZone: dnsZone.dnsZone,
+      domainNamePrefix: "responslywebhook",
+    });
 
     //var webhook = new SurveyWebhook(this, "SurveyWebhook", {});
 
     console.log("Directory path: " + __dirname);
     console.log("Lambda path: " + path.join(__dirname, "../../lambda/process-survey-results.ts"));
+    console.log("DnsZone name: " + dnsZone.dnsZone.zoneName);
 
     var queueFunction = new QueueFunction(this, "QueueFunction", { queue: responslyWebhook.queue, functionEntry: path.join(__dirname, "../../lambda/process-survey-results.ts"), handler: "handler" });
   }

@@ -24,17 +24,19 @@ async function processMessageAsync(message: SQSRecord): Promise<any> {
 // Set this from config or environment variable.
 const PASSWORD = "hltvvhfqsnvfxfxf";
 
-async function send365Email(from: string, to: string, subject: string, html: string, text: string) {
+export async function send365Email(from: string, to: string, subject: string, html: string, text: string) {
   try {
     const transportOptions = {
       host: "smtp-mail.outlook.com", // "smtp.office365.com",
       port: "587",
       auth: { user: from, pass: PASSWORD },
       secureConnection: true,
-      tls: { ciphers: "SSLv3" },
+      //tls: { ciphers: "SSLv3" },
     };
     const mailTransport = nodemailer.createTransport(transportOptions);
 
+    // TODO: add message id to email
+    console.log(`Sending email from ${from} to ${to} with subject ${subject}`);
     await mailTransport.sendMail({
       from,
       to,
@@ -43,6 +45,7 @@ async function send365Email(from: string, to: string, subject: string, html: str
       html,
       text,
     });
+    console.log(`Email sent from ${from} to ${to} with subject ${subject}`);
   } catch (err) {
     console.error(`send365Email: An error occurred:`, err);
   }

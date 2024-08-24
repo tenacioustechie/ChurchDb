@@ -4,7 +4,10 @@ import { aws_sqs as sqs } from "aws-cdk-lib";
 import * as ApiGateway from "aws-cdk-lib/aws-apigateway";
 import { Effect, Policy, PolicyStatement, Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { CnameRecord, IHostedZone } from "aws-cdk-lib/aws-route53";
+import { ARecord, CnameRecord, IHostedZone, PublicHostedZone, RecordTarget } from "aws-cdk-lib/aws-route53";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as targets from "aws-cdk-lib/aws-route53-targets";
+import { Certificate, CertificateValidation, ICertificate } from "aws-cdk-lib/aws-certificatemanager";
 //import { aws_sqs as sqs } from "aws-cdk-lib";
 
 export interface WebhookQueueProps extends cdk.StackProps {
@@ -16,7 +19,7 @@ export interface WebhookQueueProps extends cdk.StackProps {
 export class WebhookQueue extends Construct {
   public queue: sqs.Queue;
   public deadLetterQueue: sqs.Queue;
-  public apiGw: ApiGateway.RestApi;
+  public webhookApiGw: ApiGateway.RestApi;
 
   constructor(scope: Construct, id: string, props: WebhookQueueProps) {
     super(scope, id);
@@ -87,13 +90,13 @@ export class WebhookQueue extends Construct {
     });
 
     // webhook API
-    const webhookApi = new ApiGateway.RestApi(this, "WebhookApi", {
+    this.webhookApiGw = new ApiGateway.RestApi(this, "WebhookApi", {
       // name will be auto generated based on stack name and properties
       //restApiName: "WebhookAPI",
       description: "Rest API used for incoming webhooks",
     });
     // add post method
-    webhookApi.root.addResource(props.webhookUriPath).addMethod("POST", webhookIntegration, {
+    this.webhookApiGw.root.addResource(props.webhookUriPath).addMethod("POST", webhookIntegration, {
       methodResponses: [
         {
           statusCode: "200",
@@ -116,17 +119,27 @@ export class WebhookQueue extends Construct {
       ],
     });
 
+    // add custom domain name if provided
     if (props.domainNamePrefix && props.dnsZone) {
-      console.log(`Adding Domain name: ${props.domainNamePrefix}.${props.dnsZone.zoneName}`);
-      console.log(`RestApiId:   ${webhookApi.restApiId}`);
-      console.log(`RestApiName: ${webhookApi.restApiName}`);
-      // webhookApi.addDomainName("WebhookDomainName", { domainName: `${props.domainNamePrefix}.${props.dnsZone.zoneName}`, certificate: })
-      // const cname = new CnameRecord(this, "WebhookCnameRecord", {
-      //   zone: props.dnsZone,
-      //   recordName: props.domainNamePrefix,
-      //   domainName: webhookApi.restApiId, //.restApiId,
-      //   ttl: cdk.Duration.minutes(15),
-      // });
+      const apiDomainName = `${props.domainNamePrefix}.${props.dnsZone.zoneName}`;
+      console.log(`Adding Domain name: ${apiDomainName}`);
+      console.log(`RestApiId:   ${this.webhookApiGw.restApiId}`);
+      console.log(`RestApiName: ${this.webhookApiGw.restApiName}`);
+      const apiCertificate = new Certificate(this, "WebhookApiCertificate", {
+        domainName: apiDomainName,
+        validation: CertificateValidation.fromDns(props.dnsZone),
+      });
+      this.webhookApiGw.addDomainName(apiDomainName, {
+        domainName: apiDomainName,
+        securityPolicy: ApiGateway.SecurityPolicy.TLS_1_2,
+        certificate: apiCertificate,
+      });
+      const dnsARecord = new route53.ARecord(this, "WebhookApiAliasRecord", {
+        recordName: props.domainNamePrefix,
+        zone: props.dnsZone,
+        target: route53.RecordTarget.fromAlias(new targets.ApiGateway(this.webhookApiGw)),
+        ttl: cdk.Duration.minutes(5),
+      });
     } else {
       console.log("No domain name prefix or dns zone provided, skipping CNAME record creation");
     }
