@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.151.0",
+    "aws-sdk": "^2.1682.0",
     "constructs": "^10.0.0",
     "nodemailer": "^6.9.14",
     "source-map-support": "^0.5.21"

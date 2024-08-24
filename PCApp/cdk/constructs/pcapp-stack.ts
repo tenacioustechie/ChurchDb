@@ -19,6 +19,8 @@ import { DnsZone } from "./dns-zone";
 import { Lambda } from "aws-cdk-lib/aws-ses-actions";
 import { Function } from "aws-cdk-lib/aws-lambda";
 import path = require("path");
+import { PeopleCountTables } from "./people-count-tables";
+import { EnvVarKeys } from "../../lambda/envVarKeys";
 
 export class PCAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -110,35 +112,38 @@ export class PCAppStack extends cdk.Stack {
       ],
     });
 
+    const dnsZone = new DnsZone(this, "PCAppDnsZone", { zoneName: "pcapp.peoplecount.au", domainName: "pcapp.peoplecount.au" });
+    console.log("DnsZone name: " + dnsZone.dnsZone.zoneName);
+
     // Deploy web content to S3 Bucket
-    //const deploySiteContent = (bucket: Bucket, distribution: Distribution): void => {
     const deployment = new BucketDeployment(this, "DeployWithInvalidation", {
       sources: [Source.asset("./../frontend/church-db-app/build")],
       destinationBucket: s3Bucket,
       distribution: myCloudfrontDistro,
       distributionPaths: ["/*"],
     });
-    //};
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'PcAppQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
-
-    const dnsZone = new DnsZone(this, "PCAppDnsZone", { zoneName: "pcapp.peoplecount.au", domainName: "pcapp.peoplecount.au" });
-
+    // Responslfy Webhook Resources
     const responslyWebhook = new WebhookQueue(this, "PCAppResponslyWebhook", {
       webhookUriPath: "ResponslyWebhook",
       dnsZone: dnsZone.dnsZone,
       domainNamePrefix: "responslywebhook",
     });
 
-    //var webhook = new SurveyWebhook(this, "SurveyWebhook", {});
+    // DynamoDB Table
+    var tables = new PeopleCountTables(this, "PCAppDynamoDbTables", {});
 
     console.log("Directory path: " + __dirname);
     console.log("Lambda path: " + path.join(__dirname, "../../lambda/process-survey-results.ts"));
-    console.log("DnsZone name: " + dnsZone.dnsZone.zoneName);
-
-    var queueFunction = new QueueFunction(this, "QueueFunction", { queue: responslyWebhook.queue, functionEntry: path.join(__dirname, "../../lambda/process-survey-results.ts"), handler: "handler" });
+    var queueFunction = new QueueFunction(this, "QueueFunction", {
+      queue: responslyWebhook.queue,
+      functionEntry: path.join(__dirname, "../../lambda/process-survey-results.ts"),
+      handler: "handler",
+      envVariables: {
+        [EnvVarKeys.SmtpPassword]: "hltvvhfqsnvfxfxf",
+        [EnvVarKeys.ChurchContactResponseTableName]: tables.churchContactResponseTable.tableName,
+      },
+    });
+    tables.churchContactResponseTable.grantReadWriteData(queueFunction.function);
   }
 }
