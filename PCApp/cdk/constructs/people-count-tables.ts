@@ -15,11 +15,13 @@ export class PeopleCountTables extends Construct {
     super(scope, id);
 
     this.churchContactResponseTable = new DynamoDb.TableV2(this, "ChurchContactResponseTable", {
+      tableClass: DynamoDb.TableClass.STANDARD,
+
       partitionKey: { name: "pk", type: DynamoDb.AttributeType.STRING },
       sortKey: { name: "sk", type: DynamoDb.AttributeType.STRING },
       globalSecondaryIndexes: [{ indexName: "gsi1", partitionKey: { name: "gsi1pk", type: DynamoDb.AttributeType.STRING }, sortKey: { name: "gsi1sk", type: DynamoDb.AttributeType.STRING } }],
       billing: DynamoDb.Billing.onDemand(),
-      removalPolicy: cdk.RemovalPolicy.SNAPSHOT,
+      removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
   }
 }

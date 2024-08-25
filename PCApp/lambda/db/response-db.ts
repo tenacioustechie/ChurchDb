@@ -25,9 +25,9 @@ export class ResponseDb {
     this.tableName = process.env[EnvVarKeys.ChurchContactResponseTableName] ?? "UnknownTableName";
   }
 
-  async putItem(params) {
-    return this.ddb.putItem(params).promise();
-  }
+  // async putItem(params) {
+  //   return this.ddb.putItem(params).promise();
+  // }
 }
 
 /* ddb.putItem(params, function (err, data) {
